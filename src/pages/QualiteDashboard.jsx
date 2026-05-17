@@ -135,6 +135,7 @@ export default function QualiteDashboard() {
   const openEdit = (p) => {
     setEditing(p);
     setForm({
+      type_piece: p.type_piece || "",
       date_creation: p.date_creation ? p.date_creation.split("T")[0] : "",
       order_ref: p.order_ref,
       cep: p.cep,
