@@ -14,6 +14,7 @@ export default function AchatDashboard() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all"); // "all" | "calculated" | "pending"
   const [filterFournisseur, setFilterFournisseur] = useState("all");
+  const [filterMonth, setFilterMonth] = useState("");
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -155,7 +156,11 @@ export default function AchatDashboard() {
     const matchFournisseur =
       filterFournisseur === "all" || p.nom_fournisseur === filterFournisseur;
 
-    return matchSearch && matchStatus && matchFournisseur;
+    const matchMonth =
+      !filterMonth ||
+      (p.date_creation && p.date_creation.startsWith(filterMonth));
+
+    return matchSearch && matchStatus && matchFournisseur && matchMonth;
   });
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" });
@@ -290,6 +295,16 @@ export default function AchatDashboard() {
           </div>
 
           <div className="form-group shrink">
+            <input
+              type="month"
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              title="Filtrer par mois"
+              className="form-control"
+            />
+          </div>
+
+          <div className="form-group shrink">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
@@ -315,12 +330,14 @@ export default function AchatDashboard() {
           </div>
 
           {(search ||
+            filterMonth ||
             filterStatus !== "all" ||
             filterFournisseur !== "all") && (
             <button
               className="btn"
               onClick={() => {
                 setSearch("");
+                setFilterMonth("");
                 setFilterStatus("all");
                 setFilterFournisseur("all");
               }}
