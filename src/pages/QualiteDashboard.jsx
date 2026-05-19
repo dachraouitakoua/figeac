@@ -15,7 +15,7 @@ import {
 } from "recharts";
 
 const EMPTY = {
-  type_piece: "",
+  description: "",
   date_creation: "",
   order_ref: "",
   cep: "",
@@ -98,6 +98,8 @@ export default function QualiteDashboard() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkDecision, setBulkDecision] = useState("");
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   // Excel import state
   const fileInputRef = useRef(null);
@@ -135,7 +137,7 @@ export default function QualiteDashboard() {
   const openEdit = (p) => {
     setEditing(p);
     setForm({
-      type_piece: p.type_piece || "",
+      description: p.description || "",
       date_creation: p.date_creation ? p.date_creation.split("T")[0] : "",
       order_ref: p.order_ref,
       cep: p.cep,
@@ -236,18 +238,28 @@ export default function QualiteDashboard() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkDeleting(true);
+    try {
+      await Promise.all(
+        selectedIds.map((id) => axiosInstance.delete(`/products/${id}`)),
+      );
+      setSelectedIds([]);
+      setBulkDeleteConfirm(false);
+      fetchProducts();
+    } catch (err) {
+      console.error("Bulk delete error:", err.response?.status, err.response?.data);
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const fmt = (v) => (v != null ? v : "—");
 
   // ── Excel column → field mapping (flexible header names) ──────────────────
   const HEADER_MAP = {
-    type_piece: [
-      "type_piece",
-      "type de piece",
-      "type de piéce",
-      "type de pièce",
-      "typepiece",
-      "type",
-    ],
+    description: ["description", "Description", "desc"],
     date_creation: [
       "date_creation",
       "date de creation",
@@ -409,7 +421,9 @@ export default function QualiteDashboard() {
         try {
           // Only send fields that have actual values — avoids validation errors for missing columns
           const cleanProduct = Object.fromEntries(
-            Object.entries(product).filter(([, v]) => v !== null && v !== "" && v !== undefined),
+            Object.entries(product).filter(
+              ([, v]) => v !== null && v !== "" && v !== undefined,
+            ),
           );
           await axiosInstance.post("/products", cleanProduct);
           success++;
@@ -425,7 +439,7 @@ export default function QualiteDashboard() {
             rawMsg.includes("required")
           ) {
             const fields = [];
-            if (rawMsg.includes("type_piece")) fields.push("Type de pièce");
+            if (rawMsg.includes("description")) fields.push("Description");
             if (rawMsg.includes("order_ref")) fields.push("Order Ref");
             if (rawMsg.includes("cep")) fields.push("CEP");
             if (rawMsg.includes("article")) fields.push("Article");
@@ -636,6 +650,14 @@ export default function QualiteDashboard() {
                   {bulkSaving ? "⏳ Application…" : "✔ Appliquer"}
                 </button>
                 <button
+                  className="btn btn-danger"
+                  style={{ width: "auto", padding: "6px 14px" }}
+                  onClick={() => setBulkDeleteConfirm(true)}
+                  title={`Supprimer les ${selectedIds.length} ligne(s) sélectionnée(s)`}
+                >
+                  🗑 Supprimer tout
+                </button>
+                <button
                   className="btn btn-secondary"
                   style={{ width: "auto", padding: "6px 14px" }}
                   onClick={() => setSelectedIds([])}
@@ -661,7 +683,7 @@ export default function QualiteDashboard() {
                         title="Tout sélectionner"
                       />
                     </th>
-                    <th>Type de piéce</th>
+                    <th>Description</th>
                     <th>Date Création</th>
                     <th>Order Ref</th>
                     <th>CEP</th>
@@ -695,7 +717,7 @@ export default function QualiteDashboard() {
                             onChange={() => toggleSelectRow(p._id)}
                           />
                         </td>
-                        <td>{fmt(p.type_piece)}</td>
+                        <td>{fmt(p.description)}</td>
                         <td>
                           {p.date_creation
                             ? new Date(p.date_creation).toLocaleDateString(
@@ -923,10 +945,10 @@ export default function QualiteDashboard() {
             <form onSubmit={handleSubmit}>
               <div className="form-row">
                 <div className="form-group full-width">
-                  <label>Type de piéce</label>
+                  <label>Description</label>
                   <input
-                    name="type_piece"
-                    value={form.type_piece}
+                    name="description"
+                    value={form.description}
                     type="text"
                     onChange={handleChange}
                     required
@@ -1174,6 +1196,51 @@ export default function QualiteDashboard() {
                 onClick={() => handleDelete(deleteId)}
               >
                 Oui, supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirm Modal */}
+      {bulkDeleteConfirm && (
+        <div className="modal-overlay" onClick={() => setBulkDeleteConfirm(false)}>
+          <div
+            className="modal"
+            style={{ maxWidth: 420 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3>🗑 Supprimer la sélection</h3>
+              <button
+                className="modal-close"
+                onClick={() => setBulkDeleteConfirm(false)}
+              >
+                ×
+              </button>
+            </div>
+            <p style={{ color: "var(--text-2)", marginBottom: 24 }}>
+              Vous êtes sur le point de supprimer{" "}
+              <strong>{selectedIds.length}</strong> CEP
+              {selectedIds.length > 1 ? "s" : ""}. Cette action est
+              irréversible.
+            </p>
+            <div className="form-actions">
+              <button
+                className="btn-cancel"
+                onClick={() => setBulkDeleteConfirm(false)}
+                disabled={bulkDeleting}
+              >
+                Annuler
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+              >
+                {bulkDeleting
+                  ? "⏳ Suppression…"
+                  : `Oui, supprimer ${selectedIds.length} CEP${selectedIds.length > 1 ? "s" : ""}`}
               </button>
             </div>
           </div>
