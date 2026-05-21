@@ -108,6 +108,9 @@ export default function QualiteDashboard() {
 
   // Filters state
   const [filterMonth, setFilterMonth] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterSupplier, setFilterSupplier] = useState("all");
 
   // Chart month filter (independent from table filter)
   const [chartMonth, setChartMonth] = useState("");
@@ -190,10 +193,46 @@ export default function QualiteDashboard() {
 
   // ── Multi-select helpers ───────────────────────────────────────────────────
   const filteredProducts = products.filter((p) => {
-    if (!filterMonth) return true;
-    if (!p.date_creation) return false;
-    return p.date_creation.startsWith(filterMonth);
+    // Month filter
+    if (filterMonth) {
+      if (!p.date_creation) return false;
+      if (!p.date_creation.startsWith(filterMonth)) return false;
+    }
+    // Search filter (ref, article, fournisseur)
+    if (filterSearch) {
+      const q = filterSearch.toLowerCase();
+      const matches =
+        (p.order_ref || "").toLowerCase().includes(q) ||
+        (p.article || "").toLowerCase().includes(q) ||
+        (p.nom_fournisseur || "").toLowerCase().includes(q) ||
+        (p.cep || "").toLowerCase().includes(q) ||
+        (p.description || "").toLowerCase().includes(q);
+      if (!matches) return false;
+    }
+    // Status filter
+    if (filterStatus === "calculated") {
+      if (!p.cout_total) return false;
+    } else if (filterStatus === "pending") {
+      if (p.cout_total) return false;
+    }
+    // Supplier filter
+    if (filterSupplier !== "all") {
+      if (p.nom_fournisseur !== filterSupplier) return false;
+    }
+    return true;
   });
+
+  // Unique supplier list for the dropdown
+  const supplierList = [...new Set(products.map((p) => p.nom_fournisseur).filter(Boolean))].sort();
+
+  const clearAllFilters = () => {
+    setFilterMonth("");
+    setFilterSearch("");
+    setFilterStatus("all");
+    setFilterSupplier("all");
+  };
+
+  const hasActiveFilters = filterMonth || filterSearch || filterStatus !== "all" || filterSupplier !== "all";
 
   const allSelected =
     filteredProducts.length > 0 &&
@@ -564,6 +603,8 @@ export default function QualiteDashboard() {
           <div className="form-group grow">
             <input
               type="text"
+              value={filterSearch}
+              onChange={(e) => setFilterSearch(e.target.value)}
               placeholder="🔍 Rechercher (ref, article, fournisseur…)"
             />
           </div>
@@ -579,7 +620,10 @@ export default function QualiteDashboard() {
           </div>
 
           <div className="form-group shrink">
-            <select>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
               <option value="all">Tous les statuts</option>
               <option value="calculated">✅ Coût Total calculé</option>
               <option value="pending">⏳ En attente</option>
@@ -587,18 +631,24 @@ export default function QualiteDashboard() {
           </div>
 
           <div className="form-group shrink">
-            <select>
+            <select
+              value={filterSupplier}
+              onChange={(e) => setFilterSupplier(e.target.value)}
+            >
               <option value="all">Tous les fournisseurs</option>
+              {supplierList.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
             </select>
           </div>
 
-          {filterMonth && (
+          {hasActiveFilters && (
             <button
               className="btn"
-              onClick={() => setFilterMonth("")}
-              title="Effacer le filtre"
+              onClick={clearAllFilters}
+              title="Effacer tous les filtres"
             >
-              ✕
+              ✕ Effacer
             </button>
           )}
 
@@ -697,7 +747,7 @@ export default function QualiteDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((p) => {
+                  {filteredProducts.map((p) => {
                     const isSelected = selectedIds.includes(p._id);
                     return (
                       <tr
