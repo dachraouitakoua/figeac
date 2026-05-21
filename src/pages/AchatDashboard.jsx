@@ -165,9 +165,40 @@ export default function AchatDashboard() {
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" });
     doc.setFontSize(16);
-    doc.text("FIGEAC AERO — Rapport Produits", 14, 15);
+    doc.text("FIGEAC AERO — Rapport CEP", 14, 15);
     doc.setFontSize(9);
-    doc.text(`Exporté le ${new Date().toLocaleDateString("fr-FR")}`, 14, 21);
+
+    const getFrenchMonthYear = (monthStr) => {
+      if (!monthStr) return "";
+      const [year, month] = monthStr.split("-");
+      const months = [
+        "janvier",
+        "février",
+        "mars",
+        "avril",
+        "mai",
+        "juin",
+        "juillet",
+        "août",
+        "septembre",
+        "octobre",
+        "novembre",
+        "décembre",
+      ];
+      const monthIdx = parseInt(month, 10) - 1;
+      return monthIdx >= 0 && monthIdx < 12
+        ? `${months[monthIdx]} ${year}`
+        : monthStr;
+    };
+
+    const monthText = filterMonth
+      ? ` pour le mois de ${getFrenchMonthYear(filterMonth)}`
+      : "";
+    doc.text(
+      `Exporté le ${new Date().toLocaleDateString("fr-FR")}${monthText}`,
+      14,
+      21,
+    );
 
     const head = [
       [
