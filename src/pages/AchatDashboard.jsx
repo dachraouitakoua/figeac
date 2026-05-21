@@ -192,7 +192,7 @@ export default function AchatDashboard() {
     };
 
     const monthText = filterMonth
-      ? ` pour le mois de ${getFrenchMonthYear(filterMonth)}`
+      ? ` Pour le mois de: ${getFrenchMonthYear(filterMonth)}`
       : "";
     doc.text(
       `Exporté le ${new Date().toLocaleDateString("fr-FR")}${monthText}`,
