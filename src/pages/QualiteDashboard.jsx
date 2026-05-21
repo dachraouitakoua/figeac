@@ -209,11 +209,11 @@ export default function QualiteDashboard() {
         (p.description || "").toLowerCase().includes(q);
       if (!matches) return false;
     }
-    // Status filter (based on cout_achat like AchatDashboard)
+    // Status filter (based on cout_total)
     if (filterStatus === "calculated") {
-      if (p.cout_achat == null) return false;
+      if (p.cout_total == null) return false;
     } else if (filterStatus === "pending") {
-      if (p.cout_achat != null) return false;
+      if (p.cout_total != null) return false;
     }
     // Supplier filter
     if (filterSupplier !== "all") {
@@ -625,7 +625,7 @@ export default function QualiteDashboard() {
               onChange={(e) => setFilterStatus(e.target.value)}
             >
               <option value="all">Tous les statuts</option>
-              <option value="calculated">✅ Coût Achat calculé</option>
+              <option value="calculated">✅ Coût Total calculé</option>
               <option value="pending">⏳ En attente</option>
             </select>
           </div>
