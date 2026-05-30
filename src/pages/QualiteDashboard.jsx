@@ -23,6 +23,7 @@ const EMPTY = {
   quantite: "",
   decision: "",
   nom_fournisseur: "",
+  fournisseur_flux: "",
   valeur_ifs: "",
 };
 
@@ -114,6 +115,7 @@ export default function QualiteDashboard() {
 
   // Chart month filter (independent from table filter)
   const [chartMonth, setChartMonth] = useState("");
+  const [chartMonthCount, setChartMonthCount] = useState("");
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -148,6 +150,7 @@ export default function QualiteDashboard() {
       quantite: p.quantite,
       decision: p.decision,
       nom_fournisseur: p.nom_fournisseur,
+      fournisseur_flux: p.fournisseur_flux || "",
       valeur_ifs: p.valeur_ifs,
     });
     setError("");
@@ -205,6 +208,7 @@ export default function QualiteDashboard() {
         (p.order_ref || "").toLowerCase().includes(q) ||
         (p.article || "").toLowerCase().includes(q) ||
         (p.nom_fournisseur || "").toLowerCase().includes(q) ||
+        (p.fournisseur_flux || "").toLowerCase().includes(q) ||
         (p.cep || "").toLowerCase().includes(q) ||
         (p.description || "").toLowerCase().includes(q);
       if (!matches) return false;
@@ -223,7 +227,9 @@ export default function QualiteDashboard() {
   });
 
   // Unique supplier list for the dropdown
-  const supplierList = [...new Set(products.map((p) => p.nom_fournisseur).filter(Boolean))].sort();
+  const supplierList = [
+    ...new Set(products.map((p) => p.nom_fournisseur).filter(Boolean)),
+  ].sort();
 
   const clearAllFilters = () => {
     setFilterMonth("");
@@ -232,7 +238,11 @@ export default function QualiteDashboard() {
     setFilterSupplier("all");
   };
 
-  const hasActiveFilters = filterMonth || filterSearch || filterStatus !== "all" || filterSupplier !== "all";
+  const hasActiveFilters =
+    filterMonth ||
+    filterSearch ||
+    filterStatus !== "all" ||
+    filterSupplier !== "all";
 
   const allSelected =
     filteredProducts.length > 0 &&
@@ -288,7 +298,11 @@ export default function QualiteDashboard() {
       setBulkDeleteConfirm(false);
       fetchProducts();
     } catch (err) {
-      console.error("Bulk delete error:", err.response?.status, err.response?.data);
+      console.error(
+        "Bulk delete error:",
+        err.response?.status,
+        err.response?.data,
+      );
     } finally {
       setBulkDeleting(false);
     }
@@ -355,6 +369,13 @@ export default function QualiteDashboard() {
       "description imputation",
       "imputation",
       "site",
+    ],
+    fournisseur_flux: [
+      "fournisseur_flux",
+      "fournisseur flux",
+      "flux fournisseur",
+      "flux_fournisseur",
+      "flux",
     ],
     valeur_ifs: [
       "valeur_ifs",
@@ -452,6 +473,18 @@ export default function QualiteDashboard() {
             product[field] = excelDateToISO(cell);
           } else if (field === "quantite" || field === "valeur_ifs") {
             product[field] = Number(cell);
+          } else if (field === "fournisseur_flux") {
+            const val = String(cell).trim();
+            const valLower = val.toLowerCase();
+            if (valLower === "usinage") {
+              product[field] = "Usinage";
+            } else if (valLower === "ts") {
+              product[field] = "TS";
+            } else if (valLower === "matiére" || valLower === "matière" || valLower === "matiere") {
+              product[field] = "Matiére";
+            } else {
+              product[field] = val;
+            }
           } else {
             product[field] = String(cell).trim();
           }
@@ -587,11 +620,21 @@ export default function QualiteDashboard() {
             </div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Décisions Acceptées</div>
-            <div className="stat-val" style={{ color: "var(--green)" }}>
+            <div className="stat-label">Décisions Rebuts</div>
+            <div className="stat-val" style={{ color: "var(--red)" }}>
               {
                 filteredProducts.filter((p) =>
-                  p.decision?.toLowerCase().includes("accept"),
+                  p.decision?.toLowerCase().includes("rebut"),
+                ).length
+              }
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Décisions A retoucher</div>
+            <div className="stat-val" style={{ color: "var(--amber)" }}>
+              {
+                filteredProducts.filter((p) =>
+                  p.decision?.toLowerCase().includes("retoucher"),
                 ).length
               }
             </div>
@@ -637,7 +680,9 @@ export default function QualiteDashboard() {
             >
               <option value="all">Tous les fournisseurs</option>
               {supplierList.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s}>
+                  {s}
+                </option>
               ))}
             </select>
           </div>
@@ -741,7 +786,9 @@ export default function QualiteDashboard() {
                     <th>Quantité</th>
                     <th>Décision</th>
                     <th>Fournisseur</th>
+                    <th>Fournisseur Flux</th>
                     <th>Valeur IFS</th>
+                    <th>Coût Total</th>
                     <th>Validé par</th>
                     <th>Actions</th>
                   </tr>
@@ -789,7 +836,15 @@ export default function QualiteDashboard() {
                           </span>
                         </td>
                         <td>{fmt(p.nom_fournisseur)}</td>
+                        <td>{fmt(p.fournisseur_flux)}</td>
                         <td>{fmt(p.valeur_ifs)}</td>
+                        <td>
+                          {p.cout_total != null ? (
+                            <span className="cout-total-val">{p.cout_total} </span>
+                          ) : (
+                            <span className="chip chip-null">Non défini</span>
+                          )}
+                        </td>
                         <td>{fmt(p.valider_par_qualite)}</td>
                         <td
                           style={{ display: "flex", gap: "8px" }}
@@ -976,6 +1031,164 @@ export default function QualiteDashboard() {
             })()}
           </div>
         )}
+
+        {/* ── Fournisseur CEP Count Chart ─────────────────────────────────────────── */}
+        {products.length > 0 && (
+          <div
+            style={{
+              marginTop: "2.5rem",
+              background: "var(--card)",
+              borderRadius: "16px",
+              border: "1px solid var(--border)",
+              padding: "1.5rem",
+            }}
+          >
+            {/* Chart header */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "12px",
+                marginBottom: "1.25rem",
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>
+                  📊 Top fournisseurs par nombre de CEP
+                </h3>
+                <p
+                  style={{
+                    margin: "4px 0 0",
+                    fontSize: "0.8rem",
+                    opacity: 0.6,
+                  }}
+                >
+                  {chartMonthCount
+                    ? `Données pour ${new Date(chartMonthCount + "-01").toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`
+                    : "Toutes les périodes"}
+                </p>
+              </div>
+
+              <div className="form-group shrink">
+                <input
+                  type="month"
+                  value={chartMonthCount}
+                  onChange={(e) => setChartMonthCount(e.target.value)}
+                  className="form-control"
+                  style={{ width: "auto" }}
+                  title="Filtrer le graphique par mois"
+                />
+                {chartMonthCount && (
+                  <button
+                    className="btn"
+                    onClick={() => setChartMonthCount("")}
+                    title="Afficher tous les mois"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Chart */}
+            {(() => {
+              const source = chartMonthCount
+                ? products.filter(
+                    (p) =>
+                      p.date_creation && p.date_creation.startsWith(chartMonthCount),
+                  )
+                : products;
+
+              const chartData = Object.entries(
+                source.reduce((acc, p) => {
+                  const key = p.nom_fournisseur || "—";
+                  acc[key] = (acc[key] || 0) + 1;
+                  return acc;
+                }, {}),
+              )
+                .map(([name, count]) => ({ name, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 10);
+
+              const COLORS = [
+                "#3b82f6",
+                "#00d4aa",
+                "#8b5cf6",
+                "#f59e0b",
+                "#ef4444",
+                "#10b981",
+                "#f97316",
+                "#06b6d4",
+                "#ec4899",
+                "#6366f1",
+              ];
+
+              if (chartData.length === 0) {
+                return (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "2rem",
+                      opacity: 0.5,
+                    }}
+                  >
+                    Aucune donnée pour cette période.
+                  </div>
+                );
+              }
+
+              return (
+                <ResponsiveContainer width="100%" height={340}>
+                  <BarChart
+                    data={chartData}
+                    margin={{ top: 10, right: 20, left: 0, bottom: 100 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="rgba(255,255,255,0.07)"
+                    />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fontSize: 11, fill: "#94a3b8" }}
+                      angle={-35}
+                      textAnchor="end"
+                      interval={0}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: "#94a3b8" }}
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: "#f1f1f1ff",
+                        border: "1px solid #334155",
+                        borderRadius: "8px",
+                        color: "#f1f5f9",
+                        fontSize: 12,
+                      }}
+                      formatter={(value) => [`${value} CEP`, "Occurrences"]}
+                      labelStyle={{ color: "#3b82f6", fontWeight: 700 }}
+                    />
+                    <Bar
+                      dataKey="count"
+                      radius={[6, 6, 0, 0]}
+                      maxBarSize={60}
+                    >
+                      {chartData.map((_, i) => (
+                        <Cell
+                          key={`cell-${i}`}
+                          fill={COLORS[i % COLORS.length]}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              );
+            })()}
+          </div>
+        )}
       </div>
 
       {/* Create / Edit Modal */}
@@ -1096,6 +1309,22 @@ export default function QualiteDashboard() {
                   </datalist>
                 </div>
                 <div className="form-group">
+                  <label>Fournisseur Flux</label>
+                  <select
+                    name="fournisseur_flux"
+                    value={form.fournisseur_flux}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">-- Choisir un flux --</option>
+                    <option value="Usinage">Usinage</option>
+                    <option value="TS">TS</option>
+                    <option value="Matiére">Matiére</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
                   <label>Valeur IFS</label>
                   <input
                     name="valeur_ifs"
@@ -1106,6 +1335,9 @@ export default function QualiteDashboard() {
                     onChange={handleChange}
                     required
                   />
+                </div>
+                <div className="form-group">
+                  {/* Empty spacer to align layout */}
                 </div>
               </div>
               <div className="form-actions">
@@ -1254,7 +1486,10 @@ export default function QualiteDashboard() {
 
       {/* Bulk Delete Confirm Modal */}
       {bulkDeleteConfirm && (
-        <div className="modal-overlay" onClick={() => setBulkDeleteConfirm(false)}>
+        <div
+          className="modal-overlay"
+          onClick={() => setBulkDeleteConfirm(false)}
+        >
           <div
             className="modal"
             style={{ maxWidth: 420 }}

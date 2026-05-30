@@ -3,6 +3,16 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import Navbar from "../components/Navbar";
 import axiosInstance from "../api/axiosInstance";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 
 export default function AchatDashboard() {
   const [products, setProducts] = useState([]);
@@ -15,6 +25,7 @@ export default function AchatDashboard() {
   const [filterStatus, setFilterStatus] = useState("all"); // "all" | "calculated" | "pending"
   const [filterFournisseur, setFilterFournisseur] = useState("all");
   const [filterMonth, setFilterMonth] = useState("");
+  const [chartMonthTotal, setChartMonthTotal] = useState("");
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -44,6 +55,9 @@ export default function AchatDashboard() {
     setEditing((prev) => ({ ...prev, [id]: { ...prev[id], [field]: val } }));
 
   const handleSave = async (id) => {
+    const p = products.find((x) => x._id === id);
+    if (!p || p.cout_achat == null) return;
+
     const row = editing[id] || {};
     setSaving((s) => ({ ...s, [id]: true }));
     try {
@@ -67,7 +81,10 @@ export default function AchatDashboard() {
   const handleSaveAll = async () => {
     setSavingAll(true);
     try {
-      const promises = products.map((p) => {
+      const promises = filteredProducts.map((p) => {
+        if (p.cout_achat == null) {
+          return Promise.resolve();
+        }
         const row = editing[p._id] || {};
         const pvInput = row.prix_vente;
         const cpInput = row.cout_presentation;
@@ -205,10 +222,10 @@ export default function AchatDashboard() {
         "Qté",
         "Décision",
         "Fournisseur",
-        "Val. IFS",
+        "Fournisseur Flux",
         "Coût Achat",
-        "Prix Vente",
-        "Coût Prés.",
+        "Coût de chutes & Copeaux",
+        "Coût Présentation",
         "Coût Total",
         "Val. Qualité",
         "Val. Finance",
@@ -227,7 +244,7 @@ export default function AchatDashboard() {
         p.quantite ?? "—",
         p.decision || "—",
         p.nom_fournisseur || "—",
-        p.valeur_ifs ?? "—",
+        p.fournisseur_flux || "—",
         p.cout_achat != null ? `${p.cout_achat} ` : "—",
         p.prix_vente != null ? `${p.prix_vente} ` : "—",
         p.cout_presentation != null ? `${p.cout_presentation} ` : "—",
@@ -265,7 +282,7 @@ export default function AchatDashboard() {
           <div>
             <h2>🛒 Tableau de Bord Achat</h2>
             <p>
-              Renseignez Prix Vente & Coût Présentation — Coût Total calculé
+              Renseignez Prix Vente & Coût Préstation — Coût Total calculé
               automatiquement
             </p>
           </div>
@@ -394,9 +411,12 @@ export default function AchatDashboard() {
                   <th>Article</th>
                   <th>Qté</th>
                   <th>Fournisseur</th>
+                  <th>Fournisseur Flux</th>
                   <th>Val. IFS</th>
                   <th style={{ color: "var(--amber)" }}>Coût Achat</th>
-                  <th style={{ color: "var(--green)" }}>Prix Vente Rebut</th>
+                  <th style={{ color: "var(--green)" }}>
+                    Coût de chutes & Copeaux
+                  </th>
                   <th style={{ color: "var(--green)" }}>
                     Coût Présentation ()
                   </th>
@@ -424,6 +444,7 @@ export default function AchatDashboard() {
                       <td>{fmt(p.article)}</td>
                       <td>{fmt(p.quantite)}</td>
                       <td className="muted">{fmt(p.nom_fournisseur)}</td>
+                      <td>{fmt(p.fournisseur_flux)}</td>
                       <td>{fmt(p.valeur_ifs)}</td>
                       <td>
                         {p.cout_achat != null ? (
@@ -439,11 +460,12 @@ export default function AchatDashboard() {
                           className="inline-input"
                           type="number"
                           step="0.01"
-                          placeholder="0.00"
+                          placeholder={p.cout_achat != null ? "0.00" : "N/A"}
                           value={row.prix_vente ?? ""}
                           onChange={(e) =>
                             handleChange(p._id, "prix_vente", e.target.value)
                           }
+                          disabled={p.cout_achat == null}
                           style={
                             p.prix_vente != null
                               ? { borderColor: "var(--green)" }
@@ -456,7 +478,7 @@ export default function AchatDashboard() {
                           className="inline-input"
                           type="number"
                           step="0.01"
-                          placeholder="0.00"
+                          placeholder={p.cout_achat != null ? "0.00" : "N/A"}
                           value={row.cout_presentation ?? ""}
                           onChange={(e) =>
                             handleChange(
@@ -465,6 +487,7 @@ export default function AchatDashboard() {
                               e.target.value,
                             )
                           }
+                          disabled={p.cout_achat == null}
                           style={
                             p.cout_presentation != null
                               ? { borderColor: "var(--green)" }
@@ -487,7 +510,7 @@ export default function AchatDashboard() {
                           <button
                             className="btn btn-success"
                             onClick={() => handleSave(p._id)}
-                            disabled={saving[p._id]}
+                            disabled={saving[p._id] || p.cout_achat == null}
                           >
                             {saving[p._id] ? "…" : "💾 Sauvegarder"}
                           </button>
@@ -504,12 +527,180 @@ export default function AchatDashboard() {
           <button
             className="btn btn-amber"
             onClick={handleSaveAll}
-            disabled={savingAll || products.length === 0}
+            disabled={savingAll || filteredProducts.length === 0}
             style={{ width: "auto", whiteSpace: "nowrap" }}
           >
             {savingAll ? "⏳ Sauvegarde..." : "💾 Sauvegarder tout"}
           </button>
         </div>
+
+        {/* ── Fournisseur Top Cost Chart ─────────────────────────────────────────── */}
+        {products.length > 0 && (
+          <div
+            style={{
+              marginTop: "2.5rem",
+              background: "var(--card)",
+              borderRadius: "16px",
+              border: "1px solid var(--border)",
+              padding: "1.5rem",
+            }}
+          >
+            {/* Chart header */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "12px",
+                marginBottom: "1.25rem",
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>
+                  📊 Top fournisseurs par Coût Total
+                </h3>
+                <p
+                  style={{
+                    margin: "4px 0 0",
+                    fontSize: "0.8rem",
+                    opacity: 0.6,
+                  }}
+                >
+                  {chartMonthTotal
+                    ? `Données pour ${new Date(chartMonthTotal + "-01").toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`
+                    : "Toutes les périodes"}
+                </p>
+              </div>
+
+              <div
+                className="form-group shrink"
+                style={{ display: "flex", gap: "6px", alignItems: "center" }}
+              >
+                <input
+                  type="month"
+                  value={chartMonthTotal}
+                  onChange={(e) => setChartMonthTotal(e.target.value)}
+                  className="form-control"
+                  style={{ width: "auto" }}
+                  title="Filtrer le graphique par mois"
+                />
+                {chartMonthTotal && (
+                  <button
+                    className="btn"
+                    onClick={() => setChartMonthTotal("")}
+                    title="Afficher tous les mois"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Chart */}
+            {(() => {
+              const source = chartMonthTotal
+                ? products.filter(
+                    (p) =>
+                      p.date_creation &&
+                      p.date_creation.startsWith(chartMonthTotal),
+                  )
+                : products;
+
+              const chartData = Object.entries(
+                source.reduce((acc, p) => {
+                  const key = p.nom_fournisseur || "—";
+                  const totalVal = previewTotal(p);
+                  if (totalVal !== null) {
+                    acc[key] = (acc[key] || 0) + parseFloat(totalVal);
+                  }
+                  return acc;
+                }, {}),
+              )
+                .map(([name, totalCost]) => ({
+                  name,
+                  totalCost: parseFloat(totalCost.toFixed(2)),
+                }))
+                .sort((a, b) => b.totalCost - a.totalCost)
+                .slice(0, 10);
+
+              const COLORS = [
+                "#10b981",
+                "#3b82f6",
+                "#f59e0b",
+                "#8b5cf6",
+                "#ef4444",
+                "#00d4aa",
+                "#f97316",
+                "#06b6d4",
+                "#ec4899",
+                "#6366f1",
+              ];
+
+              if (chartData.length === 0) {
+                return (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "2rem",
+                      opacity: 0.5,
+                    }}
+                  >
+                    Aucune donnée pour cette période.
+                  </div>
+                );
+              }
+
+              return (
+                <ResponsiveContainer width="100%" height={340}>
+                  <BarChart
+                    data={chartData}
+                    margin={{ top: 10, right: 20, left: 10, bottom: 100 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="rgba(255,255,255,0.07)"
+                    />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fontSize: 11, fill: "#94a3b8" }}
+                      angle={-35}
+                      textAnchor="end"
+                      interval={0}
+                    />
+                    <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} />
+                    <Tooltip
+                      contentStyle={{
+                        background: "#ffffffff",
+                        border: "1px solid #334155",
+                        borderRadius: "8px",
+                        color: "#f1f5f9",
+                        fontSize: 12,
+                      }}
+                      formatter={(value) => [
+                        `${value.toFixed(2)}`,
+                        "Coût Total",
+                      ]}
+                      labelStyle={{ color: "#10b981", fontWeight: 700 }}
+                    />
+                    <Bar
+                      dataKey="totalCost"
+                      radius={[6, 6, 0, 0]}
+                      maxBarSize={60}
+                    >
+                      {chartData.map((_, i) => (
+                        <Cell
+                          key={`cell-${i}`}
+                          fill={COLORS[i % COLORS.length]}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              );
+            })()}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -10,6 +10,12 @@ export default function FinanceDashboard() {
   const [saved, setSaved] = useState({}); // { [id]: bool } flash
   const [savingAll, setSavingAll] = useState(false);
 
+  // Filters state
+  const [filterMonth, setFilterMonth] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterSupplier, setFilterSupplier] = useState("all");
+
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
@@ -32,7 +38,59 @@ export default function FinanceDashboard() {
     fetchProducts();
   }, [fetchProducts]);
 
+  const filteredProducts = products.filter((p) => {
+    // Month filter
+    if (filterMonth) {
+      if (!p.date_creation) return false;
+      if (!p.date_creation.startsWith(filterMonth)) return false;
+    }
+    // Search filter (ref, article, fournisseur, cep, description)
+    if (filterSearch) {
+      const q = filterSearch.toLowerCase();
+      const matches =
+        (p.order_ref || "").toLowerCase().includes(q) ||
+        (p.article || "").toLowerCase().includes(q) ||
+        (p.nom_fournisseur || "").toLowerCase().includes(q) ||
+        (p.fournisseur_flux || "").toLowerCase().includes(q) ||
+        (p.cep || "").toLowerCase().includes(q) ||
+        (p.description || "").toLowerCase().includes(q);
+      if (!matches) return false;
+    }
+    // Status filter (based on cout_achat)
+    if (filterStatus === "renseigne") {
+      if (p.cout_achat == null) return false;
+    } else if (filterStatus === "pending") {
+      if (p.cout_achat != null) return false;
+    }
+    // Supplier filter
+    if (filterSupplier !== "all") {
+      if (p.nom_fournisseur !== filterSupplier) return false;
+    }
+    return true;
+  });
+
+  // Unique supplier list for the dropdown
+  const supplierList = [
+    ...new Set(products.map((p) => p.nom_fournisseur).filter(Boolean)),
+  ].sort();
+
+  const clearAllFilters = () => {
+    setFilterMonth("");
+    setFilterSearch("");
+    setFilterStatus("all");
+    setFilterSupplier("all");
+  };
+
+  const hasActiveFilters =
+    filterMonth ||
+    filterSearch ||
+    filterStatus !== "all" ||
+    filterSupplier !== "all";
+
   const handleSave = async (id) => {
+    const p = products.find((x) => x._id === id);
+    if (!p || !p.decision?.toLowerCase().includes("rebut")) return;
+
     const val = editing[id];
     if (val === "" || val === null || isNaN(Number(val))) return;
     setSaving((s) => ({ ...s, [id]: true }));
@@ -53,7 +111,10 @@ export default function FinanceDashboard() {
   const handleSaveAll = async () => {
     setSavingAll(true);
     try {
-      const promises = products.map((p) => {
+      const promises = filteredProducts.map((p) => {
+        if (!p.decision?.toLowerCase().includes("rebut")) {
+          return Promise.resolve();
+        }
         const val = editing[p._id];
         const numVal = Number(val);
         // Only save if it's a valid number and has changed from the original
@@ -109,22 +170,85 @@ export default function FinanceDashboard() {
           <div className="stat-card">
             <div className="stat-label">Total Produits</div>
             <div className="stat-val" style={{ color: "var(--amber)" }}>
-              {products.length}
+              {filteredProducts.length}
             </div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Coûts renseignés</div>
             <div className="stat-val" style={{ color: "var(--green)" }}>
-              {products.filter((p) => p.cout_achat != null).length}
+              {filteredProducts.filter((p) => p.cout_achat != null).length}
             </div>
           </div>
           <div className="stat-card">
             <div className="stat-label">En attente</div>
             <div className="stat-val" style={{ color: "var(--red)" }}>
-              {products.filter((p) => p.cout_achat == null).length}
+              {filteredProducts.filter((p) => p.cout_achat == null).length}
             </div>
           </div>
         </div>
+
+        {/* Filters */}
+        {products.length > 0 && (
+          <div className="search-filter-bar">
+            <div className="form-group grow">
+              <input
+                type="text"
+                value={filterSearch}
+                onChange={(e) => setFilterSearch(e.target.value)}
+                placeholder="🔍 Rechercher (ref, article, fournisseur…)"
+              />
+            </div>
+
+            <div className="form-group shrink">
+              <input
+                type="month"
+                value={filterMonth}
+                onChange={(e) => setFilterMonth(e.target.value)}
+                title="Filtrer par mois"
+                className="form-control"
+              />
+            </div>
+
+            <div className="form-group shrink">
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                <option value="all">Tous les statuts</option>
+                <option value="renseigne">✅ Coût Achat renseigné</option>
+                <option value="pending">⏳ En attente</option>
+              </select>
+            </div>
+
+            <div className="form-group shrink">
+              <select
+                value={filterSupplier}
+                onChange={(e) => setFilterSupplier(e.target.value)}
+              >
+                <option value="all">Tous les fournisseurs</option>
+                {supplierList.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                className="btn"
+                onClick={clearAllFilters}
+                title="Effacer tous les filtres"
+              >
+                ✕ Effacer
+              </button>
+            )}
+
+            <span className="results-count">
+              {filteredProducts.length} / {products.length} Produits
+            </span>
+          </div>
+        )}
 
         {loading ? (
           <div className="spinner" />
@@ -145,6 +269,7 @@ export default function FinanceDashboard() {
                   <th>Quantité</th>
                   <th>Décision</th>
                   <th>Fournisseur</th>
+                  <th>Fournisseur Flux</th>
                   <th>Valeur IFS</th>
                   <th style={{ color: "var(--amber)" }}>
                     Coût Achat (Matiére Premiere)
@@ -154,7 +279,7 @@ export default function FinanceDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {products.map((p) => (
+                {filteredProducts.map((p) => (
                   <tr key={p._id}>
                     <td>
                       {p.date_creation
@@ -175,13 +300,18 @@ export default function FinanceDashboard() {
                       </span>
                     </td>
                     <td>{fmt(p.nom_fournisseur)}</td>
+                    <td>{fmt(p.fournisseur_flux)}</td>
                     <td>{fmt(p.valeur_ifs)}</td>
                     <td>
                       <input
                         className="inline-input"
                         type="number"
                         step="0.01"
-                        placeholder="0.00"
+                        placeholder={
+                          p.decision?.toLowerCase().includes("rebut")
+                            ? "0.00"
+                            : "N/A"
+                        }
                         value={editing[p._id] ?? ""}
                         onChange={(e) =>
                           setEditing((prev) => ({
@@ -189,6 +319,7 @@ export default function FinanceDashboard() {
                             [p._id]: e.target.value,
                           }))
                         }
+                        disabled={!p.decision?.toLowerCase().includes("rebut")}
                         style={
                           p.cout_achat != null
                             ? { borderColor: "var(--amber)" }
@@ -204,7 +335,10 @@ export default function FinanceDashboard() {
                         <button
                           className="btn btn-amber"
                           onClick={() => handleSave(p._id)}
-                          disabled={saving[p._id]}
+                          disabled={
+                            saving[p._id] ||
+                            !p.decision?.toLowerCase().includes("rebut")
+                          }
                         >
                           {saving[p._id] ? "…" : "💾 Sauvegarder"}
                         </button>
@@ -220,7 +354,7 @@ export default function FinanceDashboard() {
           <button
             className="btn btn-amber"
             onClick={handleSaveAll}
-            disabled={savingAll || products.length === 0}
+            disabled={savingAll || filteredProducts.length === 0}
             style={{ width: "auto", whiteSpace: "nowrap" }}
           >
             {savingAll ? "⏳ Sauvegarde..." : "💾 Sauvegarder tout"}
