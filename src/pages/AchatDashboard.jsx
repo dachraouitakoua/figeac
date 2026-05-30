@@ -225,7 +225,7 @@ export default function AchatDashboard() {
         "Fournisseur Flux",
         "Coût Achat",
         "Coût de chutes & Copeaux",
-        "Coût Présentation",
+        "Coût Préstation",
         "Coût Total",
         "Val. Qualité",
         "Val. Finance",
@@ -410,6 +410,7 @@ export default function AchatDashboard() {
                   <th>Order Ref</th>
                   <th>Article</th>
                   <th>Qté</th>
+                  <th>Décision</th>
                   <th>Fournisseur</th>
                   <th>Fournisseur Flux</th>
                   <th>Val. IFS</th>
@@ -417,9 +418,7 @@ export default function AchatDashboard() {
                   <th style={{ color: "var(--green)" }}>
                     Coût de chutes & Copeaux
                   </th>
-                  <th style={{ color: "var(--green)" }}>
-                    Coût Présentation ()
-                  </th>
+                  <th style={{ color: "var(--green)" }}>Coût Préstation ()</th>
                   <th>Validé par</th>
                   <th style={{ color: "var(--accent)" }}>Coût Total</th>
                   <th>Action</th>
@@ -443,6 +442,13 @@ export default function AchatDashboard() {
                       </td>
                       <td>{fmt(p.article)}</td>
                       <td>{fmt(p.quantite)}</td>
+                      <td>
+                        <span
+                          className={`chip ${p.decision ? "chip-green" : "chip-null"}`}
+                        >
+                          {fmt(p.decision)}
+                        </span>
+                      </td>
                       <td className="muted">{fmt(p.nom_fournisseur)}</td>
                       <td>{fmt(p.fournisseur_flux)}</td>
                       <td>{fmt(p.valeur_ifs)}</td>
