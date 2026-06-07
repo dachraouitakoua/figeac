@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import axiosInstance from "../api/axiosInstance";
 import Select from "react-select";
@@ -602,6 +603,9 @@ export default function QualiteDashboard() {
             >
               + Nouveau CEP
             </button>
+            <Link to="/dashboard/rapport-ppm" className="btn btn-amber" style={{ width: "auto" }}>
+              📊 Rapport PPM
+            </Link>
           </div>
         </div>
 

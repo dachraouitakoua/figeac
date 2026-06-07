@@ -4,6 +4,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
 import QualiteDashboard from "./pages/QualiteDashboard.jsx";
+import RapportPPM from "./pages/RapportPPM.jsx";
 import FinanceDashboard from "./pages/FinanceDashboard.jsx";
 import AchatDashboard from "./pages/AchatDashboard.jsx";
 
@@ -19,6 +20,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["service_qualite"]}>
                 <QualiteDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/rapport-ppm"
+            element={
+              <ProtectedRoute allowedRoles={["service_qualite"]}>
+                <RapportPPM />
               </ProtectedRoute>
             }
           />
