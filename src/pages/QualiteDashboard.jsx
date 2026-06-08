@@ -31,11 +31,8 @@ const EMPTY = {
 const decisionOptions = [
   { value: "", label: "-- Choisir une décision --" },
   { value: "A retoucher", label: "A retoucher" },
-  { value: "Non réparable", label: "Non réparable" },
-  { value: "A retourner", label: "A retourner" },
-  { value: "Dérogation", label: "Dérogation" },
-  { value: "A réparer", label: "A réparer" },
-  { value: "Composant a remplacer", label: "Composant a remplacer" },
+  { value: "Rebut", label: "Rebut" },
+  { value: "Perdue", label: "Perdue" },
 ];
 
 const FournisseurOptions = [
@@ -481,7 +478,11 @@ export default function QualiteDashboard() {
               product[field] = "Usinage";
             } else if (valLower === "ts") {
               product[field] = "TS";
-            } else if (valLower === "matiére" || valLower === "matière" || valLower === "matiere") {
+            } else if (
+              valLower === "matiére" ||
+              valLower === "matière" ||
+              valLower === "matiere"
+            ) {
               product[field] = "Matiére";
             } else {
               product[field] = val;
@@ -603,7 +604,11 @@ export default function QualiteDashboard() {
             >
               + Nouveau CEP
             </button>
-            <Link to="/dashboard/rapport-ppm" className="btn btn-amber" style={{ width: "auto" }}>
+            <Link
+              to="/dashboard/rapport-ppm"
+              className="btn btn-amber"
+              style={{ width: "auto" }}
+            >
               📊 Rapport PPM
             </Link>
           </div>
@@ -639,6 +644,16 @@ export default function QualiteDashboard() {
               {
                 filteredProducts.filter((p) =>
                   p.decision?.toLowerCase().includes("retoucher"),
+                ).length
+              }
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Décisions Perdue</div>
+            <div className="stat-val" style={{ color: "var(--amber)" }}>
+              {
+                filteredProducts.filter((p) =>
+                  p.decision?.toLowerCase().includes("perdue"),
                 ).length
               }
             </div>
@@ -730,15 +745,8 @@ export default function QualiteDashboard() {
                 >
                   <option value="">-- Choisir une décision --</option>
                   <option value="A retoucher">A retoucher</option>
-                  <option value="Non réparable">Non réparable</option>
-                  <option value="A retourner">A retourner</option>
-                  <option value="Dérogation">Dérogation</option>
-                  <option value="A réparer">A réparer</option>
-                  <option value="Composant a remplacer">
-                    Composant a remplacer
-                  </option>
-                  <option value="Accepté">Accepté</option>
-                  <option value="Refusé">Refusé</option>
+                  <option value="Rebut">Rebut</option>
+                  <option value="Perdue">Perdue</option>
                 </select>
                 <button
                   className="btn btn-primary"
@@ -844,7 +852,9 @@ export default function QualiteDashboard() {
                         <td>{fmt(p.valeur_ifs)}</td>
                         <td>
                           {p.cout_total != null ? (
-                            <span className="cout-total-val">{p.cout_total} </span>
+                            <span className="cout-total-val">
+                              {p.cout_total}{" "}
+                            </span>
                           ) : (
                             <span className="chip chip-null">Non défini</span>
                           )}
@@ -1101,7 +1111,8 @@ export default function QualiteDashboard() {
               const source = chartMonthCount
                 ? products.filter(
                     (p) =>
-                      p.date_creation && p.date_creation.startsWith(chartMonthCount),
+                      p.date_creation &&
+                      p.date_creation.startsWith(chartMonthCount),
                   )
                 : products;
 
@@ -1175,11 +1186,7 @@ export default function QualiteDashboard() {
                       formatter={(value) => [`${value} CEP`, "Occurrences"]}
                       labelStyle={{ color: "#3b82f6", fontWeight: 700 }}
                     />
-                    <Bar
-                      dataKey="count"
-                      radius={[6, 6, 0, 0]}
-                      maxBarSize={60}
-                    >
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={60}>
                       {chartData.map((_, i) => (
                         <Cell
                           key={`cell-${i}`}
@@ -1292,6 +1299,7 @@ export default function QualiteDashboard() {
                     <option value="">-- Choisir une décision --</option>
                     <option value="A retoucher">A retoucher</option>
                     <option value="Rebut">Rebut</option>
+                    <option value="Perdue">Perdue</option>
                   </select>
                 </div>
               </div>
